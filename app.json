@@ -1,17 +1,28 @@
 {
   "expo": {
-    "name": "lich-van-nien-app",
+    "name": "An Lịch",
     "slug": "lich-van-nien-app",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#8E161C",
+      "dark": {
+        "image": "./assets/splash-icon.png",
+        "resizeMode": "contain",
+        "backgroundColor": "#8E161C"
+      }
+    },
     "ios": {
       "supportsTablet": true
     },
     "android": {
+      "package": "com.phambabac.anlich",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#8E161C",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
@@ -20,6 +31,11 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "6b516048-349b-46f6-a7bc-6fe88e598ca2"
+      }
     }
   }
 }
