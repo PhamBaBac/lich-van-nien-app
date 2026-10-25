@@ -75,26 +75,37 @@ export function calculateNextOccurrence(
 }
 
 /**
- * Lấy toàn bộ danh sách ngày giỗ đã lưu trong máy
+ * Lấy danh sách thô (LunarAnniversary[]) từ AsyncStorage
  */
-export async function getAnniversaries(): Promise<AnniversaryDisplayInfo[]> {
+export async function getRawAnniversaries(): Promise<LunarAnniversary[]> {
   try {
     const json = await AsyncStorage.getItem(STORAGE_KEY);
-    let list: LunarAnniversary[] = [];
     if (json) {
-      list = JSON.parse(json);
-    } else {
-      list = DEFAULT_ANNIVERSARIES;
-      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+      return JSON.parse(json);
     }
-
-    // Tính toán ngày dương và sắp xếp theo số ngày gần nhất
-    const calculated = list.map((item) => calculateNextOccurrence(item));
-    calculated.sort((a, b) => a.daysRemaining - b.daysRemaining);
-    return calculated;
+    return DEFAULT_ANNIVERSARIES;
   } catch {
-    return DEFAULT_ANNIVERSARIES.map((item) => calculateNextOccurrence(item));
+    return DEFAULT_ANNIVERSARIES;
   }
+}
+
+/**
+ * Lưu danh sách thô và trả về danh sách tính toán hiển thị
+ */
+export async function saveRawAnniversaries(
+  list: LunarAnniversary[]
+): Promise<AnniversaryDisplayInfo[]> {
+  await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+  const calculated = list.map((item) => calculateNextOccurrence(item));
+  calculated.sort((a, b) => a.daysRemaining - b.daysRemaining);
+  return calculated;
+}
+
+export async function getAnniversaries(): Promise<AnniversaryDisplayInfo[]> {
+  const raw = await getRawAnniversaries();
+  const calculated = raw.map((item) => calculateNextOccurrence(item));
+  calculated.sort((a, b) => a.daysRemaining - b.daysRemaining);
+  return calculated;
 }
 
 /**

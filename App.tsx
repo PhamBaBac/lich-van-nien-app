@@ -11,6 +11,7 @@ import {
   LogBox,
   Linking,
   TextInput,
+  Alert,
 } from 'react-native';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -29,6 +30,7 @@ import { BentoCards } from './src/components/calendar/BentoCards';
 import { MonthGrid } from './src/components/calendar/MonthGrid';
 import { DatePickerModal } from './src/components/calendar/DatePickerModal';
 import { AddAnniversaryModal } from './src/components/events/AddAnniversaryModal';
+import { RestoreBackupModal } from './src/components/events/RestoreBackupModal';
 import { ConfirmModal } from './src/components/common/ConfirmModal';
 import { FeedbackModal } from './src/components/common/FeedbackModal';
 import {
@@ -40,6 +42,7 @@ import {
   requestNotificationPermissions,
   scheduleImportantDatesOnly,
 } from './src/services/notificationService';
+import { exportBackupFile, importBackupFile } from './src/services/backupService';
 import { AnniversaryDisplayInfo } from './src/core/types/event.types';
 import { SAMPLE_PRAYERS, Prayer } from './src/data/prayers';
 import { Ionicons } from '@expo/vector-icons';
@@ -132,6 +135,7 @@ function MainCalendarApp() {
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
   const [isDatePickerVisible, setIsDatePickerVisible] = useState(false);
   const [isAddAnniversaryVisible, setIsAddAnniversaryVisible] = useState(false);
+  const [isRestoreModalVisible, setIsRestoreModalVisible] = useState(false);
   const [selectedPrayer, setSelectedPrayer] = useState<Prayer | null>(null);
 
   // Quản lý Modal xác nhận xóa & phản hồi đồng bộ
@@ -264,6 +268,49 @@ function MainCalendarApp() {
       setAnniversaries(updated);
       scheduleImportantDatesOnly(updated);
       setDeleteTarget(null);
+    }
+  };
+
+  const handleExportBackup = async () => {
+    if (anniversaries.length === 0) {
+      setFeedbackModal({
+        visible: true,
+        type: 'info',
+        title: 'Sổ Giỗ Đang Trống',
+        message: 'Bạn chưa có ngày giỗ nào để sao lưu. Hãy thêm ít nhất một ngày giỗ trước nhé!',
+      });
+      return;
+    }
+
+    const res = await exportBackupFile();
+    if (!res.success) {
+      setFeedbackModal({
+        visible: true,
+        type: 'warning',
+        title: 'Không Thể Sao Lưu',
+        message: res.message,
+      });
+    }
+  };
+
+  const handleOpenRestoreModal = () => {
+    setIsRestoreModalVisible(true);
+  };
+
+  const handleSelectRestoreMode = async (mode: 'merge' | 'replace') => {
+    setIsRestoreModalVisible(false);
+    const res = await importBackupFile(mode);
+    if (res) {
+      if (res.success && res.updatedList) {
+        setAnniversaries(res.updatedList);
+        scheduleImportantDatesOnly(res.updatedList);
+      }
+      setFeedbackModal({
+        visible: true,
+        type: res.success ? 'success' : 'warning',
+        title: res.success ? 'Khôi Phục Thành Công' : 'Khôi Phục Thất Bại',
+        message: res.message,
+      });
     }
   };
 
@@ -667,20 +714,26 @@ function MainCalendarApp() {
 
         {activeTab === 'events' && (
           <View style={styles.tabContentPadding}>
-            {/* Card Nhắc nhở Định kỳ Rằm & Mùng 1 */}
-            <View style={styles.eventCardSpecial}>
-              <View style={styles.specialBadge}>
-                <Ionicons name="moon" size={14} color="#FFFFFF" />
-                <Text style={styles.specialBadgeText}>TỰ ĐỘNG</Text>
-              </View>
-              <Text style={styles.eventTitleSpecial}>Nhắc Lễ Rằm & Mùng 1 Hàng Tháng</Text>
-              <Text style={styles.eventDescSpecial}>
-                Hệ thống tự động thông báo trước 1 ngày (lúc 18:00) và sáng ngày lễ (lúc 07:30) để gia chủ chuẩn bị hương hoa chu đáo.
-              </Text>
-            </View>
+            {/* Card Sao Lưu & Khôi Phục Dữ Liệu (Google Drive / Tệp tin / Zalo) */}
+           <View style={styles.backupActionsRow}>
+                <TouchableOpacity
+                  style={styles.backupActionBtn}
+                  onPress={handleExportBackup}
+                >
+                  <Ionicons name="cloud-upload" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
+                  <Text style={styles.backupActionBtnText}>Sao lưu dữ liếu</Text>
+                </TouchableOpacity>
 
+                <TouchableOpacity
+                  style={[styles.backupActionBtn, styles.restoreActionBtn]}
+                  onPress={handleOpenRestoreModal}
+                >
+                  <Ionicons name="cloud-download-outline" size={16} color="#8C6D1F" style={{ marginRight: 6 }} />
+                  <Text style={styles.restoreActionBtnText}>Khôi phục từ tệp</Text>
+                </TouchableOpacity>
+              </View>
             {/* Danh sách ngày giỗ thực tế */}
-            <View style={{ marginTop: Spacing.md }}>
+            <View style={{ marginTop: Spacing.sm }}>
               <View style={styles.subSectionHeaderRow}>
                 <Text style={styles.subSectionTitle}>LỄ GIỖ GIA TIÊN (THEO ÂM LỊCH)</Text>
                 <Text style={styles.countText}>{anniversaries.length} ngày giỗ</Text>
@@ -881,6 +934,14 @@ function MainCalendarApp() {
           onSave={handleSaveAnniversary}
         />
       )}
+
+      {/* Modal Khôi Phục Sổ Giỗ Custom */}
+      <RestoreBackupModal
+        visible={isRestoreModalVisible}
+        currentCount={anniversaries.length}
+        onClose={() => setIsRestoreModalVisible(false)}
+        onSelectMode={handleSelectRestoreMode}
+      />
 
       {/* Modal Xác Nhận Xóa Ngày Giỗ Đồng Bộ */}
       <ConfirmModal
@@ -1729,5 +1790,88 @@ const styles = StyleSheet.create({
   },
   pillTextSolar: {
     color: '#0284C7',
+  },
+
+  // Card Sao Lưu & Khôi Phục Dữ Liệu
+  backupCard: {
+    backgroundColor: '#FFFDF7',
+    borderWidth: 1.5,
+    borderColor: '#E8D5A0',
+    borderRadius: Radius.lg,
+    padding: Spacing.md,
+    marginTop: Spacing.xs,
+    marginBottom: Spacing.sm,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  backupHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    marginBottom: Spacing.sm,
+  },
+  backupIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#F7EDD2',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 2,
+  },
+  backupCardTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#8C6D1F',
+    letterSpacing: 0.5,
+    marginBottom: 2,
+  },
+  backupCardDesc: {
+    fontSize: 12,
+    color: Colors.light.textSecondary,
+    lineHeight: 17,
+  },
+  backupActionsRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 4,
+  },
+  backupActionBtn: {
+    flex: 1.15,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.cinnabar,
+    borderRadius: Radius.md,
+    paddingVertical: 10,
+    paddingHorizontal: 6,
+    shadowColor: Colors.cinnabar,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  backupActionBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  restoreActionBtn: {
+    flex: 0.85,
+    backgroundColor: '#FAF8F5',
+    borderWidth: 1.5,
+    borderColor: '#E2DACB',
+    shadowColor: '#000',
+    shadowOpacity: 0.04,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  restoreActionBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#8C6D1F',
   },
 });
