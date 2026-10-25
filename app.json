@@ -82,6 +82,17 @@
         {
           "widgets": [
             {
+              "name": "LichBar",
+              "label": "Thanh Lịch Âm Dương (4x1)",
+              "minWidth": "250dp",
+              "minHeight": "40dp",
+              "targetCellWidth": 4,
+              "targetCellHeight": 1,
+              "description": "Thanh ngang 1 dòng nhỏ gọn, xem nhanh ngày Âm Dương và Hoàng Đạo",
+              "resizeMode": "horizontal",
+              "updatePeriodMillis": 1800000
+            },
+            {
               "name": "LichNgay",
               "label": "Lịch Ngày Âm Dương (2x2)",
               "minWidth": "160dp",

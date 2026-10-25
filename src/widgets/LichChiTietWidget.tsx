@@ -8,11 +8,21 @@ interface LichChiTietWidgetProps {
   isDark?: boolean;
 }
 
+/**
+ * Widget Vạn Niên Chi Tiết 4x2 - Tờ Lịch Bloc thu nhỏ với đầy đủ thông số phong thủy
+ */
 export function LichChiTietWidget({ data, isDark = false }: LichChiTietWidgetProps) {
   const isZodiac = data.fengShui.isZodiacDay;
   const goodHours = data.zodiacHours
-    ? data.zodiacHours.filter((h) => h.isZodiac).map((h) => h.branch).join(', ')
+    ? data.zodiacHours
+        .filter((h) => h.isZodiac)
+        .map((h) => h.branch)
+        .join(', ')
     : '';
+
+  const suitableStr = data.fengShui.suitable && data.fengShui.suitable.length > 0
+    ? data.fengShui.suitable.slice(0, 4).join(', ')
+    : 'Cúng tế, xuất hành, cầu tài';
 
   return (
     <FlexWidget
@@ -22,28 +32,28 @@ export function LichChiTietWidget({ data, isDark = false }: LichChiTietWidgetPro
         height: 'match_parent',
         flexDirection: 'row',
         backgroundColor: isDark ? '#18191E' : '#FFFFFF',
-        borderRadius: 22,
+        borderRadius: 18,
         borderWidth: 1,
         borderColor: isDark ? '#2D3039' : '#E8E2D5',
         overflow: 'hidden',
       }}
     >
-      {/* Cột trái: Khối Lịch Dương sang trọng */}
+      {/* 1. Cột trái: Khối Lịch Dương & Tờ Bloc đỏ Chu Sa */}
       <FlexWidget
         style={{
-          flex: 38,
+          flex: 32,
           height: 'match_parent',
           backgroundColor: isDark ? '#7A1318' : '#8E161C',
           justifyContent: 'space-between',
           alignItems: 'center',
-          paddingVertical: 10,
-          paddingHorizontal: 6,
+          paddingVertical: 8,
+          paddingHorizontal: 4,
         }}
       >
         <TextWidget
           text={data.solar.dayOfWeek.toUpperCase()}
           style={{
-            fontSize: 12,
+            fontSize: 11,
             fontWeight: 'bold',
             color: '#FEF9E7',
             letterSpacing: 0.5,
@@ -54,41 +64,67 @@ export function LichChiTietWidget({ data, isDark = false }: LichChiTietWidgetPro
         <TextWidget
           text={`${data.solar.day}`}
           style={{
-            fontSize: 44,
+            fontSize: 40,
             fontWeight: 'bold',
             color: '#FFFFFF',
-            lineHeight: 46,
+            lineHeight: 42,
             textAlign: 'center',
           }}
         />
 
         <TextWidget
-          text={`Tháng ${data.solar.month}, ${data.solar.year}`}
+          text={`Th.${data.solar.month} - ${data.solar.year}`}
           style={{
-            fontSize: 10,
+            fontSize: 9.5,
             color: '#FCDADA',
             textAlign: 'center',
           }}
         />
+
+        <FlexWidget
+          style={{
+            backgroundColor: 'rgba(0, 0, 0, 0.25)',
+            borderRadius: 6,
+            paddingVertical: 2,
+            paddingHorizontal: 6,
+            alignItems: 'center',
+          }}
+        >
+          <TextWidget
+            text={`ÂL: ${data.lunar.day}/${data.lunar.month}`}
+            style={{
+              fontSize: 10,
+              fontWeight: 'bold',
+              color: '#FEF9E7',
+            }}
+          />
+        </FlexWidget>
       </FlexWidget>
 
-      {/* Cột phải: Khối Lịch Âm & Cát Hung Phong Thuỷ */}
+      {/* 2. Cột phải: Khối Thông Tin Phong Thủy & Lịch Âm Toàn Diện */}
       <FlexWidget
         style={{
-          flex: 62,
+          flex: 68,
           height: 'match_parent',
           backgroundColor: isDark ? '#18191E' : '#FFFFFF',
           justifyContent: 'space-between',
-          paddingVertical: 9,
-          paddingHorizontal: 12,
+          paddingVertical: 7,
+          paddingHorizontal: 10,
         }}
       >
-        {/* Hàng 1: Ngày Âm lịch to rõ */}
-        <FlexWidget style={{ width: 'match_parent' }}>
+        {/* Dòng 1: Tiêu Đề Ngày Âm & Năm Can Chi */}
+        <FlexWidget
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            width: 'match_parent',
+          }}
+        >
           <TextWidget
             text={`NGÀY ${data.lunar.day} THÁNG ${data.lunar.month}${data.lunar.isLeapMonth ? ' (NHUẬN)' : ''}`}
             style={{
-              fontSize: 15,
+              fontSize: 13,
               fontWeight: 'bold',
               color: isDark ? '#E8CA66' : '#8E161C',
             }}
@@ -96,24 +132,25 @@ export function LichChiTietWidget({ data, isDark = false }: LichChiTietWidgetPro
           <TextWidget
             text={`Năm ${data.canChi.yearCanChi}`}
             style={{
-              fontSize: 11,
+              fontSize: 10,
               color: isDark ? '#9EA3B0' : '#6B7280',
-              marginTop: 1,
             }}
           />
         </FlexWidget>
 
-        {/* Hàng 2: Can Chi Ngày & Nạp Âm */}
+        {/* Dòng 2: Can Chi Ngày, Ngũ Hành & Thập Nhị Trực */}
         <TextWidget
-          text={`Ngày ${data.canChi.dayCanChi} (${data.canChi.element})`}
+          text={`Ngày ${data.canChi.dayCanChi} (${data.canChi.element}) • Trực ${data.fengShui.duty}`}
+          truncate="END"
+          maxLines={1}
           style={{
-            fontSize: 11,
+            fontSize: 10,
             fontWeight: 'bold',
             color: isDark ? '#FAF7F2' : '#1E2229',
           }}
         />
 
-        {/* Hàng 3: Badge Hoàng/Hắc Đạo & Tiết Khí */}
+        {/* Dòng 3: Hoàng/Hắc Đạo & Tiết Khí */}
         <FlexWidget
           style={{
             flexDirection: 'row',
@@ -129,15 +166,15 @@ export function LichChiTietWidget({ data, isDark = false }: LichChiTietWidgetPro
                 : isDark
                 ? '#262830'
                 : '#F4F4F5',
-              borderRadius: 6,
-              paddingHorizontal: 6,
-              paddingVertical: 2,
+              borderRadius: 5,
+              paddingHorizontal: 5,
+              paddingVertical: 1.5,
             }}
           >
             <TextWidget
-              text={isZodiac ? '★ Hoàng Đạo' : 'Hắc Đạo'}
+              text={`★ ${isZodiac ? 'Hoàng Đạo' : 'Hắc Đạo'} (${data.fengShui.zodiacName || ''})`}
               style={{
-                fontSize: 10,
+                fontSize: 9.5,
                 fontWeight: 'bold',
                 color: isZodiac ? '#B38F24' : '#718096',
               }}
@@ -145,22 +182,45 @@ export function LichChiTietWidget({ data, isDark = false }: LichChiTietWidgetPro
           </FlexWidget>
 
           <TextWidget
-            text={` • ${data.fengShui.solarTerm || ''}`}
+            text={` • Tiết ${data.fengShui.solarTerm || ''}`}
             style={{
-              fontSize: 10,
+              fontSize: 9.5,
               color: isDark ? '#9EA3B0' : '#6B7280',
+              marginLeft: 4,
             }}
           />
         </FlexWidget>
 
-        {/* Hàng 4: Giờ tốt hoàng đạo */}
+        {/* Dòng 4: Giờ Tốt Hoàng Đạo Trong Ngày */}
         <TextWidget
           text={`Giờ tốt: ${goodHours}`}
           truncate="END"
           maxLines={1}
           style={{
             fontSize: 9,
-            color: isDark ? '#7E8696' : '#64748B',
+            color: isDark ? '#CBD5E1' : '#334155',
+          }}
+        />
+
+        {/* Dòng 5: Hướng Xuất Hành (Hỷ Thần & Tài Thần) */}
+        <TextWidget
+          text={`Hướng tốt: Hỷ Thần (${data.fengShui.directions.joyGod}) | Tài Thần (${data.fengShui.directions.wealthGod})`}
+          truncate="END"
+          maxLines={1}
+          style={{
+            fontSize: 8.5,
+            color: isDark ? '#94A3B8' : '#475569',
+          }}
+        />
+
+        {/* Dòng 6: Lời khuyên việc nên làm */}
+        <TextWidget
+          text={`Nên làm: ${suitableStr}`}
+          truncate="END"
+          maxLines={1}
+          style={{
+            fontSize: 8.5,
+            color: isDark ? '#34D399' : '#15803D',
           }}
         />
       </FlexWidget>

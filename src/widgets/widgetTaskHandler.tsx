@@ -2,6 +2,7 @@
 import React from 'react';
 import type { WidgetTaskHandlerProps } from 'react-native-android-widget';
 import { getFullDayData } from '../core';
+import { LichBarWidget } from './LichBarWidget';
 import { LichNgayWidget } from './LichNgayWidget';
 import { LichChiTietWidget } from './LichChiTietWidget';
 
@@ -14,7 +15,12 @@ export async function widgetTaskHandler(props: WidgetTaskHandlerProps) {
     case 'WIDGET_RESIZED': {
       const todayData = getFullDayData(new Date());
 
-      if (widgetInfo.widgetName === 'LichNgay') {
+      if (widgetInfo.widgetName === 'LichBar') {
+        renderWidget({
+          light: <LichBarWidget data={todayData} isDark={false} />,
+          dark: <LichBarWidget data={todayData} isDark={true} />,
+        });
+      } else if (widgetInfo.widgetName === 'LichNgay') {
         renderWidget({
           light: <LichNgayWidget data={todayData} isDark={false} />,
           dark: <LichNgayWidget data={todayData} isDark={true} />,

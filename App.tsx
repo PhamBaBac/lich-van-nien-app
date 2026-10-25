@@ -250,7 +250,7 @@ function MainCalendarApp() {
     };
   }, []);
 
-  const handlePinWidget = async (type: 'LichNgay' | 'LichChiTiet') => {
+  const handlePinWidget = async (type: 'LichBar' | 'LichNgay' | 'LichChiTiet') => {
     if (Platform.OS !== 'android') {
       setFeedbackModal({
         visible: true,
@@ -777,6 +777,17 @@ function MainCalendarApp() {
               </View>
 
               <View style={styles.widgetBtnRow}>
+                <TouchableOpacity
+                  style={[styles.widgetPinBtn, styles.widgetPinBarBtn]}
+                  activeOpacity={0.8}
+                  onPress={() => handlePinWidget('LichBar')}
+                >
+                  <Ionicons name="tablet-landscape-outline" size={16} color="#047857" style={{ marginRight: 6 }} />
+                  <Text style={styles.widgetPinBarBtnText}>Thanh Ngang (4x1 - Siêu Gọn)</Text>
+                </TouchableOpacity>
+              </View>
+
+              <View style={[styles.widgetBtnRow, { marginTop: 8 }]}>
                 <TouchableOpacity
                   style={styles.widgetPinBtn}
                   activeOpacity={0.8}
@@ -2040,6 +2051,18 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: '#8C6D1F',
+  },
+  widgetPinBarBtn: {
+    backgroundColor: '#ECFDF5',
+    borderWidth: 1.5,
+    borderColor: '#A7F3D0',
+    shadowColor: '#059669',
+    shadowOpacity: 0.1,
+  },
+  widgetPinBarBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#065F46',
   },
   widgetGuideTip: {
     fontSize: 11,

@@ -4,6 +4,7 @@ import {
   requestPinWidget,
 } from 'react-native-android-widget';
 import { getFullDayData } from '../core';
+import { LichBarWidget } from './LichBarWidget';
 import { LichNgayWidget } from './LichNgayWidget';
 import { LichChiTietWidget } from './LichChiTietWidget';
 
@@ -31,7 +32,17 @@ export async function updateAllAndroidWidgets(): Promise<void> {
   try {
     const todayData = getFullDayData(new Date());
 
-    // Cập nhật Widget Lịch Ngày 2x2
+    // 1. Cập nhật Widget Thanh Ngang 4x1 (Siêu Gọn)
+    await requestWidgetUpdate({
+      widgetName: 'LichBar',
+      renderWidget: () => ({
+        light: <LichBarWidget data={todayData} isDark={false} />,
+        dark: <LichBarWidget data={todayData} isDark={true} />,
+      }),
+      widgetNotFound: () => {},
+    }).catch(() => {});
+
+    // 2. Cập nhật Widget Lịch Ngày 2x2
     await requestWidgetUpdate({
       widgetName: 'LichNgay',
       renderWidget: () => ({
@@ -41,7 +52,7 @@ export async function updateAllAndroidWidgets(): Promise<void> {
       widgetNotFound: () => {},
     }).catch(() => {});
 
-    // Cập nhật Widget Lịch Chi Tiết 4x2
+    // 3. Cập nhật Widget Lịch Chi Tiết 4x2
     await requestWidgetUpdate({
       widgetName: 'LichChiTiet',
       renderWidget: () => ({
@@ -59,7 +70,7 @@ export async function updateAllAndroidWidgets(): Promise<void> {
  * Yêu cầu hệ thống Android hiển thị hộp thoại ghim Widget ra màn hình chính
  */
 export async function pinAndroidWidget(
-  widgetName: 'LichNgay' | 'LichChiTiet'
+  widgetName: 'LichBar' | 'LichNgay' | 'LichChiTiet'
 ): Promise<boolean> {
   if (!isAndroidWidgetSupported()) return false;
 
