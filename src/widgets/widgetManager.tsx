@@ -1,5 +1,4 @@
-import React from 'react';
-import { Platform, NativeModules } from 'react-native';
+import { Platform, NativeModules, TurboModuleRegistry } from 'react-native';
 import {
   requestWidgetUpdate,
   requestPinWidget,
@@ -15,14 +14,9 @@ import { LichChiTietWidget } from './LichChiTietWidget';
 export function isAndroidWidgetSupported(): boolean {
   if (Platform.OS !== 'android') return false;
   try {
-    // @ts-expect-error
-    const isTurbo = global.__turboModuleProxy != null;
-    if (isTurbo) {
-      // @ts-expect-error
-      const mod = global.__turboModuleProxy('AndroidWidget');
-      return mod != null;
-    }
-    return NativeModules?.AndroidWidget != null;
+    const turbo = TurboModuleRegistry?.get ? TurboModuleRegistry.get('AndroidWidget') : null;
+    const classic = NativeModules?.AndroidWidget;
+    return Boolean(turbo || classic);
   } catch {
     return false;
   }
