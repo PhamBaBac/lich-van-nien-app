@@ -7,7 +7,12 @@ import {
   TouchableOpacity,
   TextInput,
 } from 'react-native';
-import { convertSolarToLunar, convertLunarToSolar, getFullDayData } from '../../core';
+import {
+  convertSolarToLunar,
+  convertLunarToSolar,
+  getFullDayData,
+  getLunarLeapMonth,
+} from '../../core';
 import { Colors } from '../../theme/colors';
 import { Spacing, Radius } from '../../theme/spacing';
 import { Ionicons } from '@expo/vector-icons';
@@ -29,13 +34,29 @@ export const DatePickerModal: React.FC<DatePickerModalProps> = ({
   const [day, setDay] = useState(initialDate.getDate().toString());
   const [month, setMonth] = useState((initialDate.getMonth() + 1).toString());
   const [year, setYear] = useState(initialDate.getFullYear().toString());
-  const [isLeapMonth, setIsLeapMonth] = useState(false);
+  const [selectedLeapType, setSelectedLeapType] = useState<'normal' | 'leap'>('normal');
+
+  const parsedDay = parseInt(day, 10);
+  const parsedMonth = parseInt(month, 10);
+  const parsedYear = parseInt(year, 10);
+
+  // Tự động phát hiện năm âm lịch có tháng nhuận hay không và nhuận tháng mấy
+  const detectedLeapMonth = useMemo(() => {
+    if (isNaN(parsedYear) || parsedYear < 1900 || parsedYear > 2199) return 0;
+    return getLunarLeapMonth(parsedYear);
+  }, [parsedYear]);
+
+  // Kiểm tra tháng người dùng nhập có trùng với tháng nhuận được phát hiện không
+  const isMonthLeap =
+    mode === 'lunarToSolar' &&
+    detectedLeapMonth > 0 &&
+    parsedMonth === detectedLeapMonth;
 
   // Tính toán kết quả realtime khi người dùng nhập
   const conversionResult = useMemo(() => {
-    const d = parseInt(day, 10);
-    const m = parseInt(month, 10);
-    const y = parseInt(year, 10);
+    const d = parsedDay;
+    const m = parsedMonth;
+    const y = parsedYear;
 
     if (isNaN(d) || isNaN(m) || isNaN(y) || d < 1 || d > 31 || m < 1 || m > 12 || y < 1900 || y > 2199) {
       return null;
@@ -52,24 +73,31 @@ export const DatePickerModal: React.FC<DatePickerModalProps> = ({
           isZodiac: full.fengShui.isZodiacDay,
           zodiacLabel: full.fengShui.isZodiacDay ? 'Ngày Hoàng Đạo' : 'Ngày Hắc Đạo',
           solarTerm: full.fengShui.solarTerm,
+          autoLeapNotice: lunar.isLeapMonth
+            ? `Ngày này rơi vào Tháng ${lunar.month} Nhuận`
+            : undefined,
         };
       } else {
-        const solar = convertLunarToSolar(d, m, y, isLeapMonth);
+        const isLeap = isMonthLeap && selectedLeapType === 'leap';
+        const solar = convertLunarToSolar(d, m, y, isLeap);
         const target = new Date(solar.year, solar.month - 1, solar.day);
         const full = getFullDayData(target);
         return {
           targetDate: target,
           primaryLabel: `DƯƠNG LỊCH: ${full.solar.dayOfWeek}, ${solar.day}/${solar.month}/${solar.year}`,
-          secondaryLabel: `Năm ${full.canChi.yearCanChi} • Ngày ${full.canChi.dayCanChi}`,
+          secondaryLabel: `Năm ${full.canChi.yearCanChi} • Ngày ${full.canChi.dayCanChi}${isLeap ? ' • Tháng Nhuận' : ''}`,
           isZodiac: full.fengShui.isZodiacDay,
           zodiacLabel: full.fengShui.isZodiacDay ? 'Ngày Hoàng Đạo' : 'Ngày Hắc Đạo',
           solarTerm: full.fengShui.solarTerm,
+          autoLeapNotice: isMonthLeap
+            ? `Năm ${y} có Tháng ${m} Nhuận`
+            : undefined,
         };
       }
     } catch {
       return null;
     }
-  }, [mode, day, month, year, isLeapMonth]);
+  }, [mode, parsedDay, parsedMonth, parsedYear, isMonthLeap, selectedLeapType]);
 
   const handleApply = () => {
     if (conversionResult?.targetDate) {
@@ -110,8 +138,8 @@ export const DatePickerModal: React.FC<DatePickerModalProps> = ({
                 </Text>
                 <Ionicons
                   name="arrow-forward"
-                  size={12}
-                  color={mode === 'solarToLunar' ? '#FFFFFF' : Colors.light.textSecondary}
+                  size={13}
+                  color={mode === 'solarToLunar' ? Colors.cinnabar : Colors.light.textSecondary}
                   style={{ marginHorizontal: 4 }}
                 />
                 <Text
@@ -140,8 +168,8 @@ export const DatePickerModal: React.FC<DatePickerModalProps> = ({
                 </Text>
                 <Ionicons
                   name="arrow-forward"
-                  size={12}
-                  color={mode === 'lunarToSolar' ? '#FFFFFF' : Colors.light.textSecondary}
+                  size={13}
+                  color={mode === 'lunarToSolar' ? Colors.cinnabar : Colors.light.textSecondary}
                   style={{ marginHorizontal: 4 }}
                 />
                 <Text
@@ -192,18 +220,56 @@ export const DatePickerModal: React.FC<DatePickerModalProps> = ({
             </View>
           </View>
 
-          {mode === 'lunarToSolar' && (
-            <TouchableOpacity
-              style={styles.leapCheckboxRow}
-              onPress={() => setIsLeapMonth(!isLeapMonth)}
-            >
-              <Ionicons
-                name={isLeapMonth ? 'checkbox' : 'square-outline'}
-                size={18}
-                color={Colors.cinnabar}
-              />
-              <Text style={styles.leapText}>Là tháng nhuận âm lịch</Text>
-            </TouchableOpacity>
+          {isMonthLeap && (
+            <View style={styles.autoLeapBanner}>
+              <View style={styles.autoLeapHeader}>
+                <Ionicons name="sparkles" size={13} color="#8C6D1F" />
+                <Text style={styles.autoLeapHeaderText}>
+                  Năm {year} có Tháng {month} Nhuận
+                </Text>
+              </View>
+              <View style={styles.autoLeapOptions}>
+                <TouchableOpacity
+                  style={[
+                    styles.autoLeapOptionBtn,
+                    selectedLeapType === 'normal' && styles.autoLeapOptionBtnActive,
+                  ]}
+                  onPress={() => setSelectedLeapType('normal')}
+                >
+                  <Text
+                    style={[
+                      styles.autoLeapOptionText,
+                      selectedLeapType === 'normal' && styles.autoLeapOptionTextActive,
+                    ]}
+                  >
+                    Tháng {month} thường
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.autoLeapOptionBtn,
+                    selectedLeapType === 'leap' && styles.autoLeapOptionBtnActive,
+                  ]}
+                  onPress={() => setSelectedLeapType('leap')}
+                >
+                  <Text
+                    style={[
+                      styles.autoLeapOptionText,
+                      selectedLeapType === 'leap' && styles.autoLeapOptionTextActive,
+                    ]}
+                  >
+                    Tháng {month} nhuận
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
+
+          {mode === 'solarToLunar' && conversionResult?.autoLeapNotice && (
+            <View style={styles.autoLeapNoticeSingle}>
+              <Ionicons name="sparkles" size={13} color="#8C6D1F" />
+              <Text style={styles.autoLeapNoticeText}>{conversionResult.autoLeapNotice}</Text>
+            </View>
           )}
 
           {/* Thẻ Kết Quả Realtime (< 2 taps) */}
@@ -274,6 +340,9 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: Colors.cinnabar,
     letterSpacing: 0.5,
+    lineHeight: 22,
+    paddingTop: 3,
+    paddingBottom: 1,
   },
   closeButton: {
     padding: 4,
@@ -334,15 +403,68 @@ const styles = StyleSheet.create({
     color: Colors.light.textPrimary,
     backgroundColor: '#FAF8F5',
   },
-  leapCheckboxRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+  autoLeapBanner: {
+    backgroundColor: '#FFFDF0',
+    borderWidth: 1,
+    borderColor: '#E8D5A0',
+    borderRadius: Radius.md,
+    padding: 10,
     marginBottom: Spacing.md,
   },
-  leapText: {
+  autoLeapHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 8,
+  },
+  autoLeapHeaderText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#8C6D1F',
+  },
+  autoLeapOptions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  autoLeapOptionBtn: {
+    flex: 1,
+    paddingVertical: 7,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: Radius.sm,
+    backgroundColor: '#F3EFE6',
+    borderWidth: 1,
+    borderColor: '#E2DACB',
+  },
+  autoLeapOptionBtnActive: {
+    backgroundColor: Colors.cinnabar,
+    borderColor: Colors.cinnabar,
+  },
+  autoLeapOptionText: {
     fontSize: 12,
-    color: Colors.light.textPrimary,
+    fontWeight: '600',
+    color: Colors.light.textSecondary,
+  },
+  autoLeapOptionTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  autoLeapNoticeSingle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#FFFDF0',
+    borderWidth: 1,
+    borderColor: '#E8D5A0',
+    borderRadius: Radius.md,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    marginBottom: Spacing.md,
+  },
+  autoLeapNoticeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#8C6D1F',
   },
   resultBox: {
     backgroundColor: '#FFFDF7',

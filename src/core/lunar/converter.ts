@@ -30,23 +30,41 @@ export function getLunarMonth11(year: number, timeZone = VIETNAM_TIMEZONE): numb
 }
 
 /**
- * Tìm tháng nhuận trong năm âm lịch (nếu có)
- * Trả về tháng âm lịch được nhuận (ví dụ: tháng 4 nhuận trả về 4)
- * Trả về 0 nếu năm đó không có tháng nhuận
+ * Tìm khoảng cách (số tháng tính từ tháng 11 âm) đến tháng nhuận (nếu có)
+ * Dựa trên thuật toán nguyên bản của TS. Hồ Ngọc Đức
  */
 export function getLeapMonthOffset(a11: number, timeZone = VIETNAM_TIMEZONE): number {
   const k = Math.floor((a11 - 2415021.076998695) / 29.530588853 + 0.5);
   let last = 0;
-  let i = 1; // Bắt đầu từ tháng sau tháng 11
-  const arc: number[] = [];
-
+  let i = 1;
+  let arc = getSunLongitude(getNewMoonDay(k + i, timeZone), timeZone);
   do {
-    last = getNewMoonDay(k + i, timeZone);
-    arc[i] = getSunLongitude(last, timeZone);
+    last = arc;
     i++;
-  } while (arc[i - 1] !== arc[i - 2] && i < 14);
+    arc = getSunLongitude(getNewMoonDay(k + i, timeZone), timeZone);
+  } while (arc !== last && i < 14);
 
   return i - 1;
+}
+
+/**
+ * Tự động xác định tháng nhuận của một năm Âm lịch
+ * Trả về số thứ tự tháng nhuận (ví dụ: năm 2025 nhuận tháng 6 trả về 6, năm 2023 nhuận tháng 2 trả về 2)
+ * Trả về 0 nếu năm đó không có tháng nhuận
+ */
+export function getLunarLeapMonth(lunarYear: number, timeZone = VIETNAM_TIMEZONE): number {
+  const a11 = getLunarMonth11(lunarYear - 1, timeZone);
+  const b11 = getLunarMonth11(lunarYear, timeZone);
+
+  if (b11 - a11 > 365) {
+    const leapOffset = getLeapMonthOffset(a11, timeZone);
+    let leapMonth = leapOffset + 10;
+    if (leapMonth > 12) {
+      leapMonth -= 12;
+    }
+    return leapMonth;
+  }
+  return 0;
 }
 
 /**

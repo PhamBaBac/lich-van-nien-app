@@ -23,7 +23,7 @@ export const DayBlock: React.FC<DayBlockProps> = ({
   onNextDay,
   onToday,
 }) => {
-  const { solar, lunar, canChi, fengShui, quote, holiday } = data;
+  const { solar, lunar, canChi, fengShui, quote } = data;
 
   return (
     <View style={styles.outerContainer}>
@@ -74,24 +74,8 @@ export const DayBlock: React.FC<DayBlockProps> = ({
             <Text style={styles.solarDayText}>{solar.day}</Text>
           </TouchableOpacity>
 
-          {/* Huy hiệu Ngày Lễ, Ngày Giỗ hoặc Ngày Hoàng Đạo */}
+          {/* Huy hiệu Ngày Hoàng Đạo */}
           <View style={styles.badgeRow}>
-            {holiday && (
-              <View style={styles.holidayBadge}>
-                <Ionicons name="sparkles" size={13} color="#FFFFFF" style={{ marginRight: 4 }} />
-                <Text style={styles.holidayText}>{holiday}</Text>
-              </View>
-            )}
-
-            {anniversaries.map((ann) => (
-              <View key={ann.id} style={styles.anniversaryBadge}>
-                <Ionicons name="flame" size={12} color="#FFFFFF" style={{ marginRight: 4 }} />
-                <Text style={styles.anniversaryBadgeText}>
-                  {ann.title.toUpperCase()}
-                </Text>
-              </View>
-            ))}
-
             <View
               style={[
                 styles.zodiacBadge,
@@ -129,12 +113,23 @@ export const DayBlock: React.FC<DayBlockProps> = ({
             <View style={styles.lunarMain}>
               <Text style={styles.lunarDayNumber}>{lunar.day}</Text>
               <View style={styles.lunarDetails}>
-                <Text style={styles.lunarMonthName}>{lunar.monthName}</Text>
-                <Text style={styles.lunarCanChiDay}>Ngày {canChi.dayCanChi}</Text>
+                <Text
+                  style={styles.lunarMonthName}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.8}
+                >
+                  {lunar.monthName}
+                </Text>
+                <Text style={styles.lunarCanChiDay} numberOfLines={1}>
+                  Ngày {canChi.dayCanChi}
+                </Text>
               </View>
             </View>
             <View style={styles.lunarElementsBadge}>
-              <Text style={styles.elementText}>{canChi.element}</Text>
+              <Text style={styles.elementText} numberOfLines={1}>
+                {canChi.element}
+              </Text>
             </View>
           </View>
 
@@ -330,25 +325,29 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     width: '100%',
     backgroundColor: '#FFFFFF',
-    paddingVertical: Spacing.md,
-    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm + 2,
+    paddingHorizontal: Spacing.md,
     borderRadius: Radius.md,
     borderWidth: 1,
     borderColor: Colors.light.border,
     marginTop: Spacing.xs,
   },
   lunarMain: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
+    marginRight: Spacing.xs,
   },
   lunarDayNumber: {
-    fontSize: 36,
+    fontSize: 34,
     fontWeight: '800',
     color: Colors.cinnabar,
     fontFamily: 'serif',
-    marginRight: Spacing.md,
+    marginRight: 10,
+    minWidth: 40,
   },
   lunarDetails: {
+    flex: 1,
     justifyContent: 'center',
   },
   lunarMonthName: {
@@ -368,6 +367,7 @@ const styles = StyleSheet.create({
     borderRadius: Radius.sm,
     borderWidth: 0.8,
     borderColor: Colors.goldLight,
+    flexShrink: 0,
   },
   elementText: {
     fontSize: 11,

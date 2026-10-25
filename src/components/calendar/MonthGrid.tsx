@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { convertSolarToLunar, getDayCanChi, getDayZodiacStatus } from '../../core';
+import { convertSolarToLunar, getDayCanChi, getDayZodiacStatus, getHoliday } from '../../core';
 import { Colors } from '../../theme/colors';
 import { Spacing, Radius } from '../../theme/spacing';
 import { Ionicons } from '@expo/vector-icons';
@@ -44,6 +44,8 @@ export const MonthGrid: React.FC<MonthGridProps> = ({
     isSpecialLunar: boolean; // Rằm hoặc Mùng 1
     hasAnniversary: boolean;
     anniversaryTitle?: string;
+    hasHoliday: boolean;
+    holidayTitle?: string;
     isSelected: boolean;
     isToday: boolean;
   }[] = [];
@@ -55,6 +57,8 @@ export const MonthGrid: React.FC<MonthGridProps> = ({
     const lunar = convertSolarToLunar(i, month + 1, year);
     const dayCC = getDayCanChi(i, month + 1, year);
     const zodiac = getDayZodiacStatus(lunar.month, dayCC.chiIndex);
+    const holiday = getHoliday(i, month + 1, lunar.day, lunar.month);
+    const hasHoliday = !!holiday && !holiday.includes('Mùng Một') && !holiday.includes('Rằm');
 
     const anniversaryItem = anniversaries.find(
       (a) => a.lunarDay === lunar.day && a.lunarMonth === lunar.month
@@ -79,6 +83,8 @@ export const MonthGrid: React.FC<MonthGridProps> = ({
       isSpecialLunar: lunar.day === 1 || lunar.day === 15,
       hasAnniversary: !!anniversaryItem,
       anniversaryTitle: anniversaryItem?.title,
+      hasHoliday,
+      holidayTitle: hasHoliday ? holiday : undefined,
       isSelected,
       isToday,
     });
@@ -143,6 +149,7 @@ export const MonthGrid: React.FC<MonthGridProps> = ({
                 <Text
                   style={[
                     styles.solarDayNumber,
+                    cell.hasHoliday && !cell.isSelected && styles.textHoliday,
                     cell.isSelected && styles.textSelected,
                     cell.isToday && !cell.isSelected && styles.textToday,
                   ]}
@@ -169,13 +176,16 @@ export const MonthGrid: React.FC<MonthGridProps> = ({
                 {cell.lunarDay === 1 ? `${cell.lunarDay}/${cell.lunarMonth}` : cell.lunarDay}
               </Text>
 
-              {/* Dấu chấm Hoàng đạo, Rằm/Mùng 1 & Ngày Giỗ */}
+              {/* Dấu chấm Hoàng đạo, Rằm/Mùng 1, Lễ & Ngày Giỗ */}
               <View style={styles.dotRow}>
                 {cell.isZodiac && (
                   <View style={[styles.zodiacDot, cell.isSelected && styles.dotSelected]} />
                 )}
                 {cell.isSpecialLunar && (
                   <View style={[styles.specialDot, cell.isSelected && styles.dotSelected]} />
+                )}
+                {cell.hasHoliday && (
+                  <View style={[styles.holidayDot, cell.isSelected && styles.dotSelected]} />
                 )}
                 {cell.hasAnniversary && (
                   <View style={[styles.anniversaryDot, cell.isSelected && styles.dotSelected]} />
@@ -195,6 +205,10 @@ export const MonthGrid: React.FC<MonthGridProps> = ({
         <View style={styles.legendItem}>
           <View style={styles.specialDot} />
           <Text style={styles.legendText}>Rằm / Mùng 1</Text>
+        </View>
+        <View style={styles.legendItem}>
+          <View style={styles.holidayDot} />
+          <Text style={[styles.legendText, { color: '#B91C1C', fontWeight: '700' }]}>Ngày Lễ</Text>
         </View>
         <View style={styles.legendItem}>
           <View style={styles.anniversaryDot} />
@@ -332,6 +346,16 @@ const styles = StyleSheet.create({
     height: 4,
     borderRadius: 2,
     backgroundColor: Colors.cinnabar,
+  },
+  holidayDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#DC2626',
+  },
+  textHoliday: {
+    color: '#B91C1C',
+    fontWeight: '800',
   },
   anniversaryDot: {
     width: 4,

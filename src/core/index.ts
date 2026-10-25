@@ -58,8 +58,10 @@ export function getFullDayData(date: Date = new Date()): FullDayData {
   const zodiacHours = getDayZodiacHours(dayCC.chiIndex);
 
   // 4. Danh ngôn & Ngày Lễ
-  const dayOfYear = Math.floor(
-    (date.getTime() - new Date(date.getFullYear(), 0, 0).getTime()) / (1000 * 60 * 60 * 24)
+  const normalizedDate = new Date(solarYear, solarMonth - 1, solarDay, 12, 0, 0);
+  const startOfYear = new Date(solarYear, 0, 0, 12, 0, 0);
+  const dayOfYear = Math.round(
+    (normalizedDate.getTime() - startOfYear.getTime()) / (1000 * 60 * 60 * 24)
   );
   const quote = getQuoteForDay(dayOfYear);
   const holiday = getHoliday(solarDay, solarMonth, lunar.day, lunar.month);
@@ -110,7 +112,16 @@ export function convertLunarToSolar(
   return lunarToSolar(day, month, year, isLeapMonth);
 }
 
-export { getLunarMonthName } from './lunar/converter';
+export { getLunarMonthName, getLunarLeapMonth } from './lunar/converter';
 export { getDayCanChi } from './canchi/canChiCalculator';
 export { getDayZodiacStatus } from './fengshui/zodiacHours';
+export {
+  getHoliday,
+  getHolidayDetails,
+  getAllHolidaysForDay,
+  isMajorHoliday,
+  HOLIDAYS,
+  Holiday,
+  HolidayCategory,
+} from '../data/holidays';
 export * from './types/lunar.types';

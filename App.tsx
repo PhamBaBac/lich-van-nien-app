@@ -9,10 +9,18 @@ import {
   Platform,
   StatusBar as RNStatusBar,
   LogBox,
+  Linking,
+  TextInput,
 } from 'react-native';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { getFullDayData, FullDayData, getLunarMonthName } from './src/core';
+import * as Notifications from 'expo-notifications';
+import {
+  getFullDayData,
+  FullDayData,
+  getLunarMonthName,
+  getHolidayDetails,
+} from './src/core';
 import { Colors } from './src/theme/colors';
 import { Spacing, Radius } from './src/theme/spacing';
 import { DayBlock } from './src/components/calendar/DayBlock';
@@ -40,9 +48,83 @@ import { Ionicons } from '@expo/vector-icons';
 LogBox.ignoreLogs([
   '[expo-notifications] Push notifications',
   '`expo-notifications` functionality is not fully supported in Expo Go',
+  '`shouldShowAlert` is deprecated',
 ]);
 
 type TabType = 'day' | 'month' | 'utilities' | 'events';
+
+// Phân tích dữ liệu ngày từ payload thông báo hoặc deep link
+function parseDatePayload(data: any): Date | null {
+  if (!data) return null;
+
+  if (data.solarYear && data.solarMonth && data.solarDay) {
+    const y = parseInt(String(data.solarYear), 10);
+    const m = parseInt(String(data.solarMonth), 10);
+    const d = parseInt(String(data.solarDay), 10);
+    if (!isNaN(y) && !isNaN(m) && !isNaN(d)) {
+      return new Date(y, m - 1, d, 12, 0, 0);
+    }
+  }
+
+  if (typeof data.solarDateString === 'string') {
+    const match = data.solarDateString.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+    if (match) {
+      const y = parseInt(match[1], 10);
+      const m = parseInt(match[2], 10);
+      const d = parseInt(match[3], 10);
+      return new Date(y, m - 1, d, 12, 0, 0);
+    }
+    const parsed = new Date(data.solarDateString);
+    if (!isNaN(parsed.getTime())) return parsed;
+  }
+
+  if (typeof data.url === 'string') {
+    const fromUrl = parseUrlPayload(data.url);
+    if (fromUrl?.date) return fromUrl.date;
+  }
+
+  return null;
+}
+
+// Phân tích URL Scheme (anlich://calendar?date=YYYY-MM-DD&tab=month)
+function parseUrlPayload(url: string | null): { date: Date | null; tab?: TabType } | null {
+  if (!url) return null;
+  try {
+    const queryString = url.includes('?') ? url.split('?')[1] : '';
+    const params: Record<string, string> = {};
+    queryString.split('&').forEach((pair) => {
+      const [key, value] = pair.split('=');
+      if (key && value) {
+        params[decodeURIComponent(key)] = decodeURIComponent(value);
+      }
+    });
+
+    let targetDate: Date | null = null;
+    if (params.date) {
+      const match = params.date.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+      if (match) {
+        targetDate = new Date(
+          parseInt(match[1], 10),
+          parseInt(match[2], 10) - 1,
+          parseInt(match[3], 10),
+          12,
+          0,
+          0
+        );
+      } else {
+        const d = new Date(params.date);
+        if (!isNaN(d.getTime())) targetDate = d;
+      }
+    }
+    const tab =
+      params.tab === 'day' || params.tab === 'month' || params.tab === 'utilities' || params.tab === 'events'
+        ? (params.tab as TabType)
+        : 'month';
+    return { date: targetDate, tab };
+  } catch {
+    return null;
+  }
+}
 
 function MainCalendarApp() {
   const insets = useSafeAreaInsets();
@@ -73,6 +155,84 @@ function MainCalendarApp() {
         scheduleImportantDatesOnly(list);
       }
     });
+
+    // 2. Hàm điều hướng khi người dùng bấm vào thông báo hoặc deep link
+    const handleNavigateToEvent = (data: any) => {
+      if (!data) return;
+      const targetDate = parseDatePayload(data);
+      if (targetDate && !isNaN(targetDate.getTime())) {
+        setCurrentDate(targetDate);
+      }
+      if (data.targetTab === 'month' || data.tab === 'month' || !data.targetTab) {
+        setActiveTab('month');
+      } else if (data.targetTab) {
+        setActiveTab(data.targetTab);
+      }
+    };
+
+    // Khi người dùng bấm thông báo trong khi app đang mở hoặc chạy ngầm
+    const notificationResponseSubscription =
+      Notifications.addNotificationResponseReceivedListener((response) => {
+        try {
+          const data = response?.notification?.request?.content?.data;
+          if (data) {
+            handleNavigateToEvent(data);
+          }
+        } catch (err) {
+          console.warn('Lỗi xử lý phản hồi thông báo:', err);
+        }
+      });
+
+    // Khi mở app từ trạng thái đóng hoàn toàn (Cold Start) do bấm thông báo
+    Notifications.getLastNotificationResponseAsync().then((response) => {
+      try {
+        if (response) {
+          const data = response?.notification?.request?.content?.data;
+          if (data) {
+            handleNavigateToEvent(data);
+          }
+        }
+      } catch (err) {
+        console.warn('Lỗi kiểm tra thông báo khởi động:', err);
+      }
+    });
+
+    // Lắng nghe URL Deep Link (anlich://...) khi app đang chạy
+    const linkingSubscription = Linking.addEventListener('url', ({ url }) => {
+      try {
+        const parsed = parseUrlPayload(url);
+        if (parsed?.date) {
+          setCurrentDate(parsed.date);
+        }
+        if (parsed?.tab) {
+          setActiveTab(parsed.tab);
+        }
+      } catch (err) {
+        console.warn('Lỗi xử lý deep link URL:', err);
+      }
+    });
+
+    // Xử lý URL Deep Link ban đầu (Cold Start)
+    Linking.getInitialURL().then((url) => {
+      try {
+        if (url) {
+          const parsed = parseUrlPayload(url);
+          if (parsed?.date) {
+            setCurrentDate(parsed.date);
+          }
+          if (parsed?.tab) {
+            setActiveTab(parsed.tab);
+          }
+        }
+      } catch (err) {
+        console.warn('Lỗi kiểm tra initial URL:', err);
+      }
+    });
+
+    return () => {
+      notificationResponseSubscription.remove();
+      linkingSubscription.remove();
+    };
   }, []);
 
   const handleSaveAnniversary = async (data: {
@@ -118,6 +278,16 @@ function MainCalendarApp() {
       (a) => a.lunarDay === dayData.lunar.day && a.lunarMonth === dayData.lunar.month
     );
   }, [anniversaries, dayData.lunar.day, dayData.lunar.month]);
+
+  // Thông tin chi tiết ngày lễ của ngày đang xem (nếu có)
+  const currentHolidayDetail = useMemo(() => {
+    return getHolidayDetails(
+      dayData.solar.day,
+      dayData.solar.month,
+      dayData.lunar.day,
+      dayData.lunar.month
+    );
+  }, [dayData.solar.day, dayData.solar.month, dayData.lunar.day, dayData.lunar.month]);
 
   // Điều hướng chuyển ngày
   const handlePrevDay = () => {
@@ -262,6 +432,46 @@ function MainCalendarApp() {
               </View>
             )}
 
+            {/* Khối chi tiết Ngày Lễ Tết nếu ngày đang xem là ngày lễ */}
+            {currentHolidayDetail && (
+              <View style={styles.dayHolidayCard}>
+                <View style={styles.dayHolidayHeader}>
+                  <View style={styles.dayHolidayBadge}>
+                    <Ionicons name="sparkles" size={13} color="#FFFFFF" />
+                    <Text style={styles.dayHolidayBadgeText}>
+                      {currentHolidayDetail.isMajor ? 'ĐẠI LỄ HÔM NAY' : 'NGÀY LỄ HÔM NAY'}
+                    </Text>
+                  </View>
+                  <View
+                    style={[
+                      styles.holidayCategoryPill,
+                      currentHolidayDetail.isLunar ? styles.pillLunar : styles.pillSolar,
+                    ]}
+                  >
+                    <Ionicons
+                      name={currentHolidayDetail.isLunar ? 'moon' : 'sunny'}
+                      size={10}
+                      color={currentHolidayDetail.isLunar ? Colors.cinnabar : '#0284C7'}
+                      style={{ marginRight: 3 }}
+                    />
+                    <Text
+                      style={[
+                        styles.holidayCategoryPillText,
+                        currentHolidayDetail.isLunar ? styles.pillTextLunar : styles.pillTextSolar,
+                      ]}
+                    >
+                      {currentHolidayDetail.isLunar ? 'Lễ Âm Lịch' : 'Lễ Dương Lịch'}
+                    </Text>
+                  </View>
+                </View>
+
+                <Text style={styles.dayHolidayTitle}>{currentHolidayDetail.title}</Text>
+                {currentHolidayDetail.description ? (
+                  <Text style={styles.dayHolidayDesc}>{currentHolidayDetail.description}</Text>
+                ) : null}
+              </View>
+            )}
+
             <ZodiacTimeline hours={dayData.zodiacHours} />
 
             <BentoCards fengShui={dayData.fengShui} canChi={dayData.canChi} />
@@ -357,6 +567,34 @@ function MainCalendarApp() {
                     <Ionicons name="arrow-forward" size={11} color="#8C6D1F" style={{ marginLeft: 3 }} />
                   </TouchableOpacity>
                 </View>
+
+                {/* Huy hiệu hiển thị rõ sự kiện Rằm, Mùng 1 hoặc Lễ Tết khi chọn ngày */}
+                {dayData.holiday ? (
+                  <View style={styles.specialDayTagRow}>
+                    <Ionicons name="sparkles" size={13} color="#B3261E" style={{ marginTop: 2 }} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.specialDayTagHoliday}>{dayData.holiday}</Text>
+                      {currentHolidayDetail?.description ? (
+                        <Text style={styles.specialDayTagDesc}>{currentHolidayDetail.description}</Text>
+                      ) : null}
+                    </View>
+                  </View>
+                ) : dayData.lunar.day === 15 ? (
+                  <View style={styles.specialDayTagRow}>
+                    <Ionicons name="moon" size={13} color="#D97706" />
+                    <Text style={styles.specialDayTagSpecial}>
+                      Ngày Rằm (Vọng) • {getLunarMonthName(dayData.lunar.month)}
+                    </Text>
+                  </View>
+                ) : dayData.lunar.day === 1 ? (
+                  <View style={styles.specialDayTagRow}>
+                    <Ionicons name="leaf" size={13} color="#16A34A" />
+                    <Text style={styles.specialDayTagMung1}>
+                      Mùng Một (Sóc) • Khởi đầu {getLunarMonthName(dayData.lunar.month)}
+                    </Text>
+                  </View>
+                ) : null}
+
                 <View style={styles.monthSelectionSubRow}>
                   <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                     <Text style={styles.monthSelectionSub}>
@@ -429,11 +667,6 @@ function MainCalendarApp() {
 
         {activeTab === 'events' && (
           <View style={styles.tabContentPadding}>
-            <View style={styles.sectionHeader}>
-              <Ionicons name="notifications-outline" size={20} color={Colors.cinnabar} />
-              <Text style={styles.sectionTitle}>QUẢN LÝ NGÀY GIỖ & NHẮC LỄ ÂM</Text>
-            </View>
-
             {/* Card Nhắc nhở Định kỳ Rằm & Mùng 1 */}
             <View style={styles.eventCardSpecial}>
               <View style={styles.specialBadge}>
@@ -442,7 +675,7 @@ function MainCalendarApp() {
               </View>
               <Text style={styles.eventTitleSpecial}>Nhắc Lễ Rằm & Mùng 1 Hàng Tháng</Text>
               <Text style={styles.eventDescSpecial}>
-                Hệ thống tự động thông báo trước 1 ngày để gia chủ chuẩn bị hương hoa, trái cây dâng lễ.
+                Hệ thống tự động thông báo trước 1 ngày (lúc 18:00) và sáng ngày lễ (lúc 07:30) để gia chủ chuẩn bị hương hoa chu đáo.
               </Text>
             </View>
 
@@ -510,7 +743,7 @@ function MainCalendarApp() {
                       <View style={styles.remindTag}>
                         <Ionicons name="alarm-outline" size={13} color="#8C6D1F" />
                         <Text style={styles.remindTagText}>
-                          Nhắc trước {ev.remindDaysBefore} ngày
+                          Nhắc trước {ev.remindDaysBefore} ngày (07:00)
                         </Text>
                       </View>
 
@@ -897,6 +1130,39 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginTop: 4,
   },
+  specialDayTagRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#FFF7ED',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: Radius.sm,
+    marginVertical: 4,
+    borderWidth: 1,
+    borderColor: '#FED7AA',
+  },
+  specialDayTagHoliday: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#B3261E',
+  },
+  specialDayTagDesc: {
+    fontSize: 11,
+    color: '#78350F',
+    marginTop: 2,
+    lineHeight: 15,
+  },
+  specialDayTagSpecial: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#D97706',
+  },
+  specialDayTagMung1: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#16A34A',
+  },
   addAnniversaryQuickBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -924,6 +1190,56 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 6,
     elevation: 2,
+  },
+  dayHolidayCard: {
+    backgroundColor: '#FFFBF5',
+    marginHorizontal: Spacing.lg,
+    marginTop: Spacing.md,
+    borderRadius: Radius.md,
+    borderWidth: 1.5,
+    borderColor: '#F87171',
+    padding: Spacing.md,
+    shadowColor: Colors.cinnabar,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  dayHolidayHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: Spacing.xs,
+    borderBottomWidth: 1,
+    borderBottomColor: '#FEE2E2',
+    paddingBottom: 6,
+  },
+  dayHolidayBadge: {
+    backgroundColor: Colors.cinnabar,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: Radius.full,
+  },
+  dayHolidayBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  dayHolidayTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: Colors.cinnabar,
+    marginTop: 4,
+    marginBottom: 4,
+  },
+  dayHolidayDesc: {
+    fontSize: 12,
+    color: Colors.light.textSecondary,
+    lineHeight: 18,
   },
   dayAnniversaryHeader: {
     flexDirection: 'row',
@@ -1388,5 +1704,30 @@ const styles = StyleSheet.create({
     color: Colors.light.textPrimary,
     marginBottom: Spacing.md,
     fontFamily: 'serif',
+  },
+
+  // Segmented control tabs cho mục Sự Kiện
+  holidayCategoryPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  pillLunar: {
+    backgroundColor: '#FEF2F2',
+  },
+  pillSolar: {
+    backgroundColor: '#F0F9FF',
+  },
+  holidayCategoryPillText: {
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  pillTextLunar: {
+    color: Colors.cinnabar,
+  },
+  pillTextSolar: {
+    color: '#0284C7',
   },
 });
