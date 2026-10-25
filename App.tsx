@@ -46,6 +46,11 @@ import { exportBackupFile, importBackupFile } from './src/services/backupService
 import { AnniversaryDisplayInfo } from './src/core/types/event.types';
 import { SAMPLE_PRAYERS, Prayer } from './src/data/prayers';
 import { Ionicons } from '@expo/vector-icons';
+import {
+  updateAllAndroidWidgets,
+  pinAndroidWidget,
+  isAndroidWidgetSupported,
+} from './src/widgets/widgetManager';
 
 // Bỏ qua cảnh báo thông tin của Expo Go về Remote Push Notifications (App sử dụng Local Notifications hoàn toàn hoạt động bình thường)
 LogBox.ignoreLogs([
@@ -160,6 +165,11 @@ function MainCalendarApp() {
       }
     });
 
+    // 2. Tự động đồng bộ và cập nhật Widget màn hình chính Android sau khi app đã ổn định
+    const widgetTimer = setTimeout(() => {
+      updateAllAndroidWidgets().catch(() => {});
+    }, 1500);
+
     // 2. Hàm điều hướng khi người dùng bấm vào thông báo hoặc deep link
     const handleNavigateToEvent = (data: any) => {
       if (!data) return;
@@ -234,10 +244,52 @@ function MainCalendarApp() {
     });
 
     return () => {
+      clearTimeout(widgetTimer);
       notificationResponseSubscription.remove();
       linkingSubscription.remove();
     };
   }, []);
+
+  const handlePinWidget = async (type: 'LichNgay' | 'LichChiTiet') => {
+    if (Platform.OS !== 'android') {
+      setFeedbackModal({
+        visible: true,
+        type: 'info',
+        title: 'Tiện Ích Màn Hình',
+        message:
+          'Tính năng ghim nhanh hiện hỗ trợ trên thiết bị Android. Trên iOS, bạn có thể nhấn giữ màn hình chính để thêm Widget.',
+      });
+      return;
+    }
+    if (!isAndroidWidgetSupported()) {
+      setFeedbackModal({
+        visible: true,
+        type: 'info',
+        title: 'Yêu Cầu Bản Cài Đặt (APK)',
+        message:
+          'Widget màn hình chính chạy trên hệ thống Native của Android. Tính năng này sẽ hoạt động khi bạn cài đặt file APK hoàn chỉnh trên điện thoại (không hỗ trợ chạy trong Expo Go).',
+      });
+      return;
+    }
+    const pinned = await pinAndroidWidget(type);
+    if (pinned) {
+      setFeedbackModal({
+        visible: true,
+        type: 'success',
+        title: 'Yêu Cầu Ghim Widget',
+        message:
+          'Hộp thoại đã được gửi tới màn hình chính! Bạn vui lòng xác nhận để đưa tiện ích ra màn hình điện thoại.',
+      });
+    } else {
+      setFeedbackModal({
+        visible: true,
+        type: 'info',
+        title: 'Cách Thêm Tiện Ích',
+        message:
+          'Bạn có thể nhấn giữ vào biểu tượng ứng dụng An Lịch ngoài màn hình điện thoại, chọn mục "Tiện ích (Widgets)" rồi kéo ra màn hình chính nhé!',
+      });
+    }
+  };
 
   const handleSaveAnniversary = async (data: {
     title: string;
@@ -708,6 +760,45 @@ function MainCalendarApp() {
                   Hôm nay hướng Hỷ Thần ở {dayData.fengShui.directions.joyGod}, Tài Thần ở {dayData.fengShui.directions.wealthGod}.
                 </Text>
               </View>
+            </View>
+
+            {/* Tiện Ích Màn Hình Chính (Home Screen Widget) */}
+            <View style={styles.widgetCard}>
+              <View style={styles.widgetHeaderRow}>
+                <View style={styles.widgetIconWrap}>
+                  <Ionicons name="apps" size={20} color={Colors.cinnabar} />
+                </View>
+                <View style={{ flex: 1, marginLeft: 10 }}>
+                  <Text style={styles.widgetCardTitle}>TIỆN ÍCH MÀN HÌNH CHÍNH (WIDGET)</Text>
+                  <Text style={styles.widgetCardDesc}>
+                    Xem nhanh ngày âm dương, hoàng đạo ngay trên màn hình điện thoại mà không cần mở ứng dụng.
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.widgetBtnRow}>
+                <TouchableOpacity
+                  style={styles.widgetPinBtn}
+                  activeOpacity={0.8}
+                  onPress={() => handlePinWidget('LichNgay')}
+                >
+                  <Ionicons name="calendar" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
+                  <Text style={styles.widgetPinBtnText}>Lịch Ngày (2x2)</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.widgetPinBtn, styles.widgetPinDetailBtn]}
+                  activeOpacity={0.8}
+                  onPress={() => handlePinWidget('LichChiTiet')}
+                >
+                  <Ionicons name="grid-outline" size={16} color="#8C6D1F" style={{ marginRight: 6 }} />
+                  <Text style={styles.widgetPinDetailBtnText}>Lịch Chi Tiết (4x2)</Text>
+                </TouchableOpacity>
+              </View>
+
+              <Text style={styles.widgetGuideTip}>
+                💡 Mẹo: Bạn cũng có thể nhấn giữ biểu tượng ứng dụng "An Lịch" ngoài màn hình chính để mở danh sách Tiện ích.
+              </Text>
             </View>
           </View>
         )}
@@ -1873,5 +1964,88 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     color: '#8C6D1F',
+  },
+  widgetCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: Radius.lg,
+    padding: Spacing.md,
+    marginTop: Spacing.md,
+    borderWidth: 1,
+    borderColor: '#EFEAE0',
+    shadowColor: Colors.light.shadow,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  widgetHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  widgetIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#FDF2F2',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  widgetCardTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: Colors.cinnabar,
+    letterSpacing: 0.5,
+    marginBottom: 3,
+  },
+  widgetCardDesc: {
+    fontSize: 12,
+    color: Colors.light.textSecondary,
+    lineHeight: 18,
+  },
+  widgetBtnRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 12,
+  },
+  widgetPinBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.cinnabar,
+    borderRadius: Radius.md,
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    shadowColor: Colors.cinnabar,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  widgetPinBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  widgetPinDetailBtn: {
+    backgroundColor: '#FAF8F5',
+    borderWidth: 1.5,
+    borderColor: '#E2DACB',
+    shadowColor: '#000',
+    shadowOpacity: 0.04,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  widgetPinDetailBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#8C6D1F',
+  },
+  widgetGuideTip: {
+    fontSize: 11,
+    color: '#71717A',
+    fontStyle: 'italic',
+    marginTop: 10,
+    lineHeight: 16,
   },
 });

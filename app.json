@@ -71,11 +71,41 @@
             "buildArchs": [
               "arm64-v8a"
             ],
-            "enableProguardInReleaseBuilds": true
+            "enableProguardInReleaseBuilds": false,
+            "extraProguardRules": "-keep class com.reactnativeandroidwidget.** { *; }\n-keep class com.phambabac.anlich.widget.** { *; }\n-keep class androidx.work.** { *; }"
           }
         }
       ],
-      "expo-sharing"
+      "expo-sharing",
+      [
+        "react-native-android-widget",
+        {
+          "widgets": [
+            {
+              "name": "LichNgay",
+              "label": "Lịch Ngày Âm Dương (2x2)",
+              "minWidth": "160dp",
+              "minHeight": "160dp",
+              "targetCellWidth": 2,
+              "targetCellHeight": 2,
+              "description": "Xem ngày Dương, ngày Âm, Can Chi và Hoàng Đạo",
+              "resizeMode": "horizontal|vertical",
+              "updatePeriodMillis": 1800000
+            },
+            {
+              "name": "LichChiTiet",
+              "label": "Lịch Vạn Niên Chi Tiết (4x2)",
+              "minWidth": "280dp",
+              "minHeight": "110dp",
+              "targetCellWidth": 4,
+              "targetCellHeight": 2,
+              "description": "Lịch Âm Dương đầy đủ, Giờ Hoàng Đạo và Tiết Khí",
+              "resizeMode": "horizontal|vertical",
+              "updatePeriodMillis": 1800000
+            }
+          ]
+        }
+      ]
     ]
   }
 }
