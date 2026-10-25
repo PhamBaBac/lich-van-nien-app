@@ -84,10 +84,11 @@
             {
               "name": "LichBar",
               "label": "Thanh Lịch Âm Dương (4x1)",
-              "minWidth": "250dp",
+              "minWidth": "240dp",
               "minHeight": "40dp",
               "targetCellWidth": 4,
               "targetCellHeight": 1,
+              "maxResizeHeight": "60dp",
               "description": "Thanh ngang 1 dòng nhỏ gọn, xem nhanh ngày Âm Dương và Hoàng Đạo",
               "resizeMode": "horizontal",
               "updatePeriodMillis": 1800000
@@ -95,10 +96,12 @@
             {
               "name": "LichNgay",
               "label": "Lịch Ngày Âm Dương (2x2)",
-              "minWidth": "160dp",
-              "minHeight": "160dp",
+              "minWidth": "110dp",
+              "minHeight": "110dp",
               "targetCellWidth": 2,
               "targetCellHeight": 2,
+              "maxResizeWidth": "160dp",
+              "maxResizeHeight": "160dp",
               "description": "Xem ngày Dương, ngày Âm, Can Chi và Hoàng Đạo",
               "resizeMode": "horizontal|vertical",
               "updatePeriodMillis": 1800000
@@ -106,10 +109,11 @@
             {
               "name": "LichChiTiet",
               "label": "Lịch Vạn Niên Chi Tiết (4x2)",
-              "minWidth": "280dp",
+              "minWidth": "240dp",
               "minHeight": "110dp",
               "targetCellWidth": 4,
               "targetCellHeight": 2,
+              "maxResizeHeight": "170dp",
               "description": "Lịch Âm Dương đầy đủ, Giờ Hoàng Đạo và Tiết Khí",
               "resizeMode": "horizontal|vertical",
               "updatePeriodMillis": 1800000
